@@ -2,23 +2,17 @@
 # https://github.com/hhcordero/docker-jmeter-server/blob/master/Dockerfile
 FROM alpine:3.12
 
-MAINTAINER Just van den Broecke<just@justobjects.nl>
-
 ARG JMETER_VERSION="5.5"
 ENV JMETER_HOME /opt/apache-jmeter-${JMETER_VERSION}
 ENV JMETER_CUSTOM_PLUGINS_FOLDER /plugins
 ENV	JMETER_BIN	${JMETER_HOME}/bin
 ENV	JMETER_DOWNLOAD_URL  https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
 
-# Install extra packages
-# Set TimeZone, See: https://github.com/gliderlabs/docker-alpine/issues/136#issuecomment-612751142
-ARG TZ="Europe/Amsterdam"
-ENV TZ ${TZ}
-RUN    apk update \
+RUN apk update \
 	&& apk upgrade \
 	&& apk add ca-certificates \
 	&& update-ca-certificates \
-	&& apk add --update openjdk8-jre tzdata curl unzip bash \
+	&& apk add --update openjdk8-jre curl unzip bash \
 	&& apk add --no-cache nss \
 	&& rm -rf /var/cache/apk/* \
 	&& mkdir -p /tmp/dependencies  \
@@ -27,7 +21,19 @@ RUN    apk update \
 	&& tar -xzf /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz -C /opt  \
 	&& rm -rf /tmp/dependencies
 
-# TODO: plugins (later)
+# cmd runner and plugin manager
+ENV CMD_RUNNER_URL https://repo1.maven.org/maven2/kg/apc/cmdrunner/2.2.1/cmdrunner-2.2.1.jar
+RUN cd /opt/apache-jmeter-${JMETER_VERSION}/lib && \
+    curl -L -O ${CMD_RUNNER_URL}
+
+ENV PLUGIN_MANAGER_URL https://repo1.maven.org/maven2/kg/apc/jmeter-plugins-manager/1.6/jmeter-plugins-manager-1.6.jar
+RUN cd /opt/apache-jmeter-${JMETER_VERSION}/lib/ext && \
+    curl -L -O ${PLUGIN_MANAGER_URL}
+
+# install plugin
+RUN cd /opt/apache-jmeter-${JMETER_VERSION}/lib && \
+    java -jar cmdrunner-2.2.1.jar --tool org.jmeterplugins.repository.PluginManagerCMD install jpgc-casutg
+
 # && unzip -oq "/tmp/dependencies/JMeterPlugins-*.zip" -d $JMETER_HOME
 
 # Set global PATH such that "jmeter" command is found
